@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "728659195177",
+    "project_id": "oshi-suta-battle",
+    "storage_bucket": "oshi-suta-battle.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:728659195177:android:dcd774a8ea807ed60ef338",
+        "android_client_info": {
+          "package_name": "com.oshistabattle.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrGjKDwfa_UJdUL3ucqSQ8Yd0k8os-flY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

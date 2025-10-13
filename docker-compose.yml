@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./backend
+    container_name: oshi-suta-api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ENV=development
+      - DEBUG=True
+      - FIREBASE_PROJECT_ID=oshi-suta-battle
+      - FIREBASE_CREDENTIALS_PATH=./oshi-suta-battle-firebase-adminsdk-fbsvc-47d1d81ed5.json
+      - FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:8000","http://127.0.0.1:3000","http://127.0.0.1:8000"]
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - oshi-suta-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: oshi-suta-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - oshi-suta-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  oshi-suta-network:
+    driver: bridge
