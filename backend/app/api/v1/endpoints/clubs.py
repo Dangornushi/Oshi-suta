@@ -13,7 +13,7 @@ from app.models.schemas import (
     ClubStatsResponse,
     ErrorResponse
 )
-from app.dependencies import get_firestore_repository
+from app.dependencies import get_firestore_repository, get_current_user
 from app.repositories.firestore_repo import FirestoreRepository
 
 logger = logging.getLogger(__name__)
@@ -201,4 +201,74 @@ async def get_club_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve club statistics"
+        )
+
+
+@router.post(
+    "/{club_id}/join",
+    status_code=status.HTTP_200_OK,
+    responses={
+        404: {"model": ErrorResponse, "description": "Club not found"},
+        401: {"model": ErrorResponse, "description": "Not authenticated"}
+    }
+)
+async def join_club(
+    club_id: str = Path(..., description="Club identifier to join"),
+    current_user: dict = Depends(get_current_user),
+    repo: FirestoreRepository = Depends(get_firestore_repository)
+) -> dict:
+    """
+    Join a club (change user's favorite club).
+
+    Updates the user's club_id to the specified club.
+    User must be authenticated.
+
+    Args:
+        club_id: Club identifier to join
+        current_user: Currently authenticated user
+        repo: Firestore repository
+
+    Returns:
+        Success message with updated club info
+
+    Raises:
+        HTTPException: If club not found or update fails
+    """
+    try:
+        # Verify club exists
+        club = await repo.get_club(club_id)
+
+        if not club:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Club {club_id} not found"
+            )
+
+        # Get user ID from current user
+        user_id = current_user.get("user_id")
+
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User ID not found in authentication"
+            )
+
+        # Update user's club_id
+        await repo.update_user(user_id, {"club_id": club_id})
+
+        logger.info(f"User {user_id} joined club {club_id}")
+
+        return {
+            "message": f"Successfully joined {club.get('name', club_id)}",
+            "club_id": club_id,
+            "club_name": club.get("name", "")
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error joining club {club_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to join club"
         )

@@ -3,6 +3,7 @@ import 'package:retrofit/retrofit.dart';
 import '../../config/constants.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/club_model.dart';
+import '../../data/models/club_list_response.dart';
 import '../../data/models/step_log_model.dart';
 import '../../data/models/auth_response.dart';
 
@@ -49,6 +50,39 @@ abstract class ApiClient {
   @GET(ApiEndpoints.profile)
   Future<HttpResponse<UserProfileResponse>> getProfile();
 
+  /// Update user profile (nickname, club_id)
+  ///
+  /// PATCH /auth/profile
+  /// Body: { "nickname": "new_nickname", "club_id": "new_club_id" }
+  /// Requires: Authorization header with Bearer token
+  /// Returns: Updated user profile information
+  @PATCH(ApiEndpoints.profile)
+  Future<HttpResponse<UserProfileResponse>> updateProfile(
+    @Body() Map<String, dynamic> body,
+  );
+
+  /// Update user email address
+  ///
+  /// PUT /auth/email
+  /// Body: { "new_email": "new@example.com", "password": "current_password" }
+  /// Requires: Authorization header with Bearer token
+  /// Returns: Updated user profile information
+  @PUT('/auth/email')
+  Future<HttpResponse<UserProfileResponse>> updateEmail(
+    @Body() Map<String, dynamic> body,
+  );
+
+  /// Change user password
+  ///
+  /// PUT /auth/password
+  /// Body: { "current_password": "old_pass", "new_password": "new_pass" }
+  /// Requires: Authorization header with Bearer token
+  /// Returns: Success message
+  @PUT('/auth/password')
+  Future<HttpResponse<dynamic>> changePassword(
+    @Body() Map<String, dynamic> body,
+  );
+
   // ============================================================================
   // Step Endpoints
   // ============================================================================
@@ -93,7 +127,7 @@ abstract class ApiClient {
   /// GET /clubs
   /// Query params: limit, offset, sort_by (points, members, name)
   @GET(ApiEndpoints.clubs)
-  Future<HttpResponse<List<ClubModel>>> getClubs({
+  Future<HttpResponse<ClubListResponse>> getClubs({
     @Query('limit') int? limit,
     @Query('offset') int? offset,
     @Query('sort_by') String? sortBy,

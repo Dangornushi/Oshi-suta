@@ -6,52 +6,44 @@ part 'club_model.g.dart';
 @JsonSerializable()
 class ClubModel {
   /// Unique identifier for the club
+  @JsonKey(name: 'club_id')
   final String id;
 
   /// Name of the club
   final String name;
 
-  /// Description of the club
-  final String description;
-
-  /// URL to the club's image/logo
-  @JsonKey(name: 'image_url')
-  final String? imageUrl;
-
   /// Total points earned by the club
   @JsonKey(name: 'total_points')
   final int totalPoints;
 
-  /// Number of members in the club
-  @JsonKey(name: 'member_count')
+  /// Number of active members
+  @JsonKey(name: 'active_members')
   final int memberCount;
 
-  /// Timestamp when the club was created
-  @JsonKey(name: 'created_at')
-  final DateTime createdAt;
-
-  /// Timestamp when the club was last updated
-  @JsonKey(name: 'updated_at')
-  final DateTime? updatedAt;
-
-  /// Whether the club is active
-  @JsonKey(name: 'is_active')
-  final bool isActive;
-
-  /// Club's current rank (optional, may be calculated)
+  /// League ranking
+  @JsonKey(name: 'league_rank')
   final int? rank;
+
+  /// Year the club was founded
+  @JsonKey(name: 'founded_year')
+  final int? foundedYear;
+
+  /// Stadium name
+  final String? stadium;
+
+  /// URL to the club's logo
+  @JsonKey(name: 'logo_url')
+  final String? logoUrl;
 
   ClubModel({
     required this.id,
     required this.name,
-    required this.description,
-    this.imageUrl,
     this.totalPoints = 0,
     this.memberCount = 0,
-    required this.createdAt,
-    this.updatedAt,
-    this.isActive = true,
     this.rank,
+    this.foundedYear,
+    this.stadium,
+    this.logoUrl,
   });
 
   /// Creates a ClubModel from JSON
@@ -65,26 +57,22 @@ class ClubModel {
   ClubModel copyWith({
     String? id,
     String? name,
-    String? description,
-    String? imageUrl,
     int? totalPoints,
     int? memberCount,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    bool? isActive,
     int? rank,
+    int? foundedYear,
+    String? stadium,
+    String? logoUrl,
   }) {
     return ClubModel(
       id: id ?? this.id,
       name: name ?? this.name,
-      description: description ?? this.description,
-      imageUrl: imageUrl ?? this.imageUrl,
       totalPoints: totalPoints ?? this.totalPoints,
       memberCount: memberCount ?? this.memberCount,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      isActive: isActive ?? this.isActive,
       rank: rank ?? this.rank,
+      foundedYear: foundedYear ?? this.foundedYear,
+      stadium: stadium ?? this.stadium,
+      logoUrl: logoUrl ?? this.logoUrl,
     );
   }
 
@@ -101,28 +89,24 @@ class ClubModel {
     return other is ClubModel &&
         other.id == id &&
         other.name == name &&
-        other.description == description &&
-        other.imageUrl == imageUrl &&
         other.totalPoints == totalPoints &&
         other.memberCount == memberCount &&
-        other.createdAt == createdAt &&
-        other.updatedAt == updatedAt &&
-        other.isActive == isActive &&
-        other.rank == rank;
+        other.rank == rank &&
+        other.foundedYear == foundedYear &&
+        other.stadium == stadium &&
+        other.logoUrl == logoUrl;
   }
 
   @override
   int get hashCode {
     return id.hashCode ^
         name.hashCode ^
-        description.hashCode ^
-        imageUrl.hashCode ^
         totalPoints.hashCode ^
         memberCount.hashCode ^
-        createdAt.hashCode ^
-        updatedAt.hashCode ^
-        isActive.hashCode ^
-        rank.hashCode;
+        rank.hashCode ^
+        foundedYear.hashCode ^
+        stadium.hashCode ^
+        logoUrl.hashCode;
   }
 }
 

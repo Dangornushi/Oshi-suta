@@ -31,6 +31,8 @@ class StorageKeys {
   static const String userEmail = 'user_email';
   static const String isLoggedIn = 'is_logged_in';
   static const String lastSyncTime = 'last_sync_time';
+  static const String favoriteClubId = 'favorite_club_id';
+  static const String favoriteClubName = 'favorite_club_name';
 }
 
 /// API Endpoints

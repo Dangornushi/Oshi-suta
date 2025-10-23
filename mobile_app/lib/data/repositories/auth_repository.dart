@@ -102,6 +102,81 @@ class AuthRepository {
     }
   }
 
+  /// Update user profile (nickname)
+  ///
+  /// Returns [UserProfileResponse] with updated user information
+  Future<UserProfileResponse> updateProfile({
+    String? nickname,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (nickname != null) body['nickname'] = nickname;
+
+      final response = await _apiClient.updateProfile(body);
+
+      if (response.data == null) {
+        throw Exception('プロフィールの更新に失敗しました');
+      }
+
+      return response.data!;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw Exception('プロフィール更新エラー: ${e.toString()}');
+    }
+  }
+
+  /// Update user email address
+  ///
+  /// Returns [UserProfileResponse] with updated user information
+  Future<UserProfileResponse> updateEmail({
+    required String newEmail,
+    required String password,
+  }) async {
+    try {
+      final response = await _apiClient.updateEmail({
+        'new_email': newEmail,
+        'password': password,
+      });
+
+      if (response.data == null) {
+        throw Exception('メールアドレスの更新に失敗しました');
+      }
+
+      // Update local storage with new email
+      await _localStorage.saveUserEmail(newEmail);
+
+      return response.data!;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw Exception('メールアドレス更新エラー: ${e.toString()}');
+    }
+  }
+
+  /// Change user password
+  ///
+  /// Returns success message
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiClient.changePassword({
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      });
+
+      if (response.data == null) {
+        throw Exception('パスワードの変更に失敗しました');
+      }
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw Exception('パスワード変更エラー: ${e.toString()}');
+    }
+  }
+
   /// Logout user
   ///
   /// Clears all authentication data from local storage
@@ -136,6 +211,11 @@ class AuthRepository {
   /// Get saved club ID
   String? getClubId() {
     return _localStorage.getClubId();
+  }
+
+  /// Save club ID to local storage
+  Future<void> saveClubId(String clubId) async {
+    await _localStorage.saveClubId(clubId);
   }
 
   /// Save authentication data to local storage

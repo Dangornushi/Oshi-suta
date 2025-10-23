@@ -54,3 +54,15 @@ class AuthLogoutRequested extends AuthEvent {
 class AuthProfileRefreshRequested extends AuthEvent {
   const AuthProfileRefreshRequested();
 }
+
+/// Event when user changes their club
+class AuthClubUpdated extends AuthEvent {
+  final String clubId;
+
+  const AuthClubUpdated({
+    required this.clubId,
+  });
+
+  @override
+  List<Object?> get props => [clubId];
+}

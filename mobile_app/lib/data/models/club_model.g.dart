@@ -7,31 +7,25 @@ part of 'club_model.dart';
 // **************************************************************************
 
 ClubModel _$ClubModelFromJson(Map<String, dynamic> json) => ClubModel(
-      id: json['id'] as String,
+      id: json['club_id'] as String,
       name: json['name'] as String,
-      description: json['description'] as String,
-      imageUrl: json['image_url'] as String?,
       totalPoints: (json['total_points'] as num?)?.toInt() ?? 0,
-      memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: json['updated_at'] == null
-          ? null
-          : DateTime.parse(json['updated_at'] as String),
-      isActive: json['is_active'] as bool? ?? true,
-      rank: (json['rank'] as num?)?.toInt(),
+      memberCount: (json['active_members'] as num?)?.toInt() ?? 0,
+      rank: (json['league_rank'] as num?)?.toInt(),
+      foundedYear: (json['founded_year'] as num?)?.toInt(),
+      stadium: json['stadium'] as String?,
+      logoUrl: json['logo_url'] as String?,
     );
 
 Map<String, dynamic> _$ClubModelToJson(ClubModel instance) => <String, dynamic>{
-      'id': instance.id,
+      'club_id': instance.id,
       'name': instance.name,
-      'description': instance.description,
-      'image_url': instance.imageUrl,
       'total_points': instance.totalPoints,
-      'member_count': instance.memberCount,
-      'created_at': instance.createdAt.toIso8601String(),
-      'updated_at': instance.updatedAt?.toIso8601String(),
-      'is_active': instance.isActive,
-      'rank': instance.rank,
+      'active_members': instance.memberCount,
+      'league_rank': instance.rank,
+      'founded_year': instance.foundedYear,
+      'stadium': instance.stadium,
+      'logo_url': instance.logoUrl,
     };
 
 ClubStatsModel _$ClubStatsModelFromJson(Map<String, dynamic> json) =>

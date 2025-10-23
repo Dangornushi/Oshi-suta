@@ -14,6 +14,8 @@ from app.models.schemas import (
     UserLoginResponse,
     UserProfileResponse,
     UserProfileUpdateRequest,
+    EmailUpdateRequest,
+    PasswordChangeRequest,
     ErrorResponse
 )
 from app.dependencies import get_firestore_repository, get_current_user
@@ -313,4 +315,174 @@ async def update_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update profile"
+        )
+
+
+@router.put(
+    "/email",
+    response_model=UserProfileResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid input"},
+        401: {"model": ErrorResponse, "description": "Unauthorized or invalid password"},
+        409: {"model": ErrorResponse, "description": "Email already in use"}
+    }
+)
+async def update_email(
+    request: EmailUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+    repo: FirestoreRepository = Depends(get_firestore_repository)
+) -> UserProfileResponse:
+    """
+    Update user email address.
+
+    Args:
+        request: Email update data
+        current_user: Current authenticated user
+        repo: Firestore repository
+
+    Returns:
+        Updated UserProfileResponse
+
+    Raises:
+        HTTPException: If update fails
+    """
+    try:
+        # Step 1: Verify current password
+        verify_result = verify_password_with_firebase(
+            current_user["email"],
+            request.password
+        )
+
+        if not verify_result:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid password"
+            )
+
+        # Step 2: Check if new email is already in use
+        existing_user = await repo.get_user_by_email(request.new_email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use"
+            )
+
+        # Step 3: Update email in Firebase Auth
+        try:
+            firebase_auth.update_user(
+                current_user["user_id"],
+                email=request.new_email
+            )
+        except firebase_auth.EmailAlreadyExistsError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use"
+            )
+        except Exception as e:
+            logger.error(f"Firebase Auth email update error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update email in authentication system"
+            )
+
+        # Step 4: Update email in Firestore
+        await repo.update_user(current_user["user_id"], {"email": request.new_email})
+
+        # Step 5: Get updated user data
+        updated_user = await repo.get_user(current_user["user_id"])
+
+        logger.info(f"Email updated successfully for user: {current_user['user_id']}")
+
+        return UserProfileResponse(
+            user_id=current_user["user_id"],
+            email=updated_user["email"],
+            nickname=updated_user["nickname"],
+            club_id=updated_user["club_id"],
+            total_points=updated_user.get("total_points", 0),
+            created_at=updated_user.get("created_at"),
+            updated_at=updated_user.get("updated_at")
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Email update error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update email"
+        )
+
+
+@router.put(
+    "/password",
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid input"},
+        401: {"model": ErrorResponse, "description": "Unauthorized or invalid password"}
+    }
+)
+async def change_password(
+    request: PasswordChangeRequest,
+    current_user: dict = Depends(get_current_user)
+) -> dict:
+    """
+    Change user password.
+
+    Args:
+        request: Password change data
+        current_user: Current authenticated user
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: If password change fails
+    """
+    try:
+        # Step 1: Verify current password
+        verify_result = verify_password_with_firebase(
+            current_user["email"],
+            request.current_password
+        )
+
+        if not verify_result:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid current password"
+            )
+
+        # Step 2: Check new password is different from current
+        if request.current_password == request.new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from current password"
+            )
+
+        # Step 3: Update password in Firebase Auth
+        try:
+            firebase_auth.update_user(
+                current_user["user_id"],
+                password=request.new_password
+            )
+        except Exception as e:
+            logger.error(f"Firebase Auth password update error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update password"
+            )
+
+        logger.info(f"Password updated successfully for user: {current_user['user_id']}")
+
+        return {
+            "message": "Password updated successfully",
+            "user_id": current_user["user_id"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password change error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to change password"
         )

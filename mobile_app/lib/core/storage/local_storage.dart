@@ -93,6 +93,26 @@ class LocalStorage {
     return _box?.get(StorageKeys.clubId);
   }
 
+  /// Save favorite club ID
+  Future<void> saveFavoriteClubId(String clubId) async {
+    await _box?.put(StorageKeys.favoriteClubId, clubId);
+  }
+
+  /// Get favorite club ID
+  Future<String?> getFavoriteClubId() async {
+    return _box?.get(StorageKeys.favoriteClubId);
+  }
+
+  /// Save favorite club name
+  Future<void> saveFavoriteClubName(String clubName) async {
+    await _box?.put(StorageKeys.favoriteClubName, clubName);
+  }
+
+  /// Get favorite club name
+  Future<String?> getFavoriteClubName() async {
+    return _box?.get(StorageKeys.favoriteClubName);
+  }
+
   /// Save login state
   Future<void> saveLoginState(bool isLoggedIn) async {
     await _box?.put(StorageKeys.isLoggedIn, isLoggedIn);

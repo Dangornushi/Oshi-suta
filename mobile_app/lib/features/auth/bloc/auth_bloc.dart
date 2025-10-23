@@ -17,6 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthRegisterRequested>(_onAuthRegisterRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
     on<AuthProfileRefreshRequested>(_onAuthProfileRefreshRequested);
+    on<AuthClubUpdated>(_onAuthClubUpdated);
   }
 
   /// Check if user is already authenticated
@@ -145,6 +146,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // Don't change state on profile refresh failure
       // User is still authenticated, just couldn't get updated profile
       print('プロフィールの更新に失敗しました: $e');
+    }
+  }
+
+  /// Handle club update
+  Future<void> _onAuthClubUpdated(
+    AuthClubUpdated event,
+    Emitter<AuthState> emit,
+  ) async {
+    if (state is! AuthAuthenticated) return;
+
+    try {
+      final currentState = state as AuthAuthenticated;
+
+      // Update state with new club ID only (no local storage)
+      emit(currentState.copyWith(
+        clubId: event.clubId,
+      ));
+    } catch (e) {
+      print('クラブ情報の更新に失敗しました: $e');
     }
   }
 }

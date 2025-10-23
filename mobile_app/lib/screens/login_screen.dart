@@ -4,6 +4,7 @@ import 'package:mobile_app/config/theme.dart';
 import '../features/auth/bloc/auth_bloc.dart';
 import '../features/auth/bloc/auth_event.dart';
 import '../features/auth/bloc/auth_state.dart';
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -102,11 +103,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
 
-            // Show user info dialog
-            _showUserInfoDialog(state);
-
-            // TODO: Navigate to home screen
-            // Navigator.pushReplacementNamed(context, '/home');
+            // Navigate to main screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainScreen()),
+            );
           }
         },
         builder: (context, state) {

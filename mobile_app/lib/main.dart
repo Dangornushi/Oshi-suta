@@ -10,6 +10,8 @@ import 'core/storage/local_storage.dart';
 import 'data/repositories/auth_repository.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
+import 'features/club/bloc/club_bloc.dart';
+import 'features/club/bloc/club_event.dart';
 import 'screens/login_screen.dart';
 
 
@@ -34,23 +36,39 @@ void main() async {
 
   runApp(OshiSutaApp(
     authRepository: authRepository,
+    apiClient: apiClient,
+    localStorage: storage,
   ));
 }
 
 class OshiSutaApp extends StatelessWidget {
 
   final AuthRepository authRepository;
+  final ApiClient apiClient;
+  final LocalStorage localStorage;
 
   const OshiSutaApp({
     Key? key,
     required this.authRepository,
+    required this.apiClient,
+    required this.localStorage,
   }): super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AuthBloc(authRepository: authRepository)
-        ..add(const AuthCheckRequested()), // Check initial auth status
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => AuthBloc(authRepository: authRepository)
+            ..add(const AuthCheckRequested()), // Check initial auth status
+        ),
+        BlocProvider(
+          create: (context) => ClubBloc(
+            apiClient: apiClient,
+            localStorage: localStorage,
+          )..add(const LoadFavoriteClub()), // Load favorite club on startup
+        ),
+      ],
       child: MaterialApp(
         title: 'Oshi-Suta BATTLE',
         theme: ThemeData(
