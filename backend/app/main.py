@@ -6,13 +6,14 @@ This module initializes and configures the FastAPI application.
 
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.settings import settings
 from app.api.v1.router import api_router
 from app.dependencies import initialize_firebase, initialize_redis, close_redis
+from app.utils.error_handlers import AppError
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +85,18 @@ app.add_middleware(
 
 
 # Exception handlers
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    """カスタムエラーのグローバルハンドラー"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.message,
+            "error_type": exc.__class__.__name__
+        }
+    )
+
+
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     """Handle 404 errors."""

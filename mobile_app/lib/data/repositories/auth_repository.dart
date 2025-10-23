@@ -2,9 +2,10 @@ import 'package:dio/dio.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/local_storage.dart';
 import '../models/auth_response.dart';
+import 'base_repository.dart';
 
 /// Repository for authentication-related operations
-class AuthRepository {
+class AuthRepository extends BaseRepository {
   final ApiClient _apiClient;
   final LocalStorage _localStorage;
 
@@ -22,30 +23,18 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    try {
-      print("$email, $password");
-      final response = await _apiClient.login({
+    final authResponse = await executeApiCall(
+      apiCall: () => _apiClient.login({
         'email': email,
         'password': password,
-      });
+      }),
+      operationName: 'ログイン',
+    );
 
-      if (response.data == null) {
-        print("this");
-        throw Exception('ログインに失敗しました');
-      }
+    // Save authentication data to local storage
+    await _saveAuthData(authResponse);
 
-      final authResponse = response.data!;
-
-      // Save authentication data to local storage
-      await _saveAuthData(authResponse);
-
-      return authResponse;
-    } on DioException catch (e) {
-      print("DioException: ${e.toString()}");
-      throw _handleDioError(e);
-    } catch (e) {
-      throw Exception('ログインエラー: ${e.toString()}');
-    }
+    return authResponse;
   }
 
   /// Register a new user
@@ -58,48 +47,30 @@ class AuthRepository {
     required String nickname,
     required String clubId,
   }) async {
-    try {
-      final response = await _apiClient.register({
+    final authResponse = await executeApiCall(
+      apiCall: () => _apiClient.register({
         'email': email,
         'password': password,
         'nickname': nickname,
         'club_id': clubId,
-      });
+      }),
+      operationName: 'ユーザー登録',
+    );
 
-      if (response.data == null) {
-        throw Exception('登録に失敗しました');
-      }
+    // Save authentication data to local storage
+    await _saveAuthData(authResponse);
 
-      final authResponse = response.data!;
-
-      // Save authentication data to local storage
-      await _saveAuthData(authResponse);
-
-      return authResponse;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      throw Exception('登録エラー: ${e.toString()}');
-    }
+    return authResponse;
   }
 
   /// Get detailed user profile
   ///
   /// Returns [UserProfileResponse] with complete user information
   Future<UserProfileResponse> getProfile() async {
-    try {
-      final response = await _apiClient.getProfile();
-
-      if (response.data == null) {
-        throw Exception('プロフィールの取得に失敗しました');
-      }
-
-      return response.data!;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      throw Exception('プロフィール取得エラー: ${e.toString()}');
-    }
+    return executeApiCall(
+      apiCall: () => _apiClient.getProfile(),
+      operationName: 'プロフィール取得',
+    );
   }
 
   /// Update user profile (nickname)
@@ -108,22 +79,13 @@ class AuthRepository {
   Future<UserProfileResponse> updateProfile({
     String? nickname,
   }) async {
-    try {
-      final body = <String, dynamic>{};
-      if (nickname != null) body['nickname'] = nickname;
+    final body = <String, dynamic>{};
+    if (nickname != null) body['nickname'] = nickname;
 
-      final response = await _apiClient.updateProfile(body);
-
-      if (response.data == null) {
-        throw Exception('プロフィールの更新に失敗しました');
-      }
-
-      return response.data!;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      throw Exception('プロフィール更新エラー: ${e.toString()}');
-    }
+    return executeApiCall(
+      apiCall: () => _apiClient.updateProfile(body),
+      operationName: 'プロフィール更新',
+    );
   }
 
   /// Update user email address
@@ -133,25 +95,18 @@ class AuthRepository {
     required String newEmail,
     required String password,
   }) async {
-    try {
-      final response = await _apiClient.updateEmail({
+    final profile = await executeApiCall(
+      apiCall: () => _apiClient.updateEmail({
         'new_email': newEmail,
         'password': password,
-      });
+      }),
+      operationName: 'メールアドレス更新',
+    );
 
-      if (response.data == null) {
-        throw Exception('メールアドレスの更新に失敗しました');
-      }
+    // Update local storage with new email
+    await _localStorage.saveUserEmail(newEmail);
 
-      // Update local storage with new email
-      await _localStorage.saveUserEmail(newEmail);
-
-      return response.data!;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      throw Exception('メールアドレス更新エラー: ${e.toString()}');
-    }
+    return profile;
   }
 
   /// Change user password
@@ -161,20 +116,13 @@ class AuthRepository {
     required String currentPassword,
     required String newPassword,
   }) async {
-    try {
-      final response = await _apiClient.changePassword({
+    await executeApiCall(
+      apiCall: () => _apiClient.changePassword({
         'current_password': currentPassword,
         'new_password': newPassword,
-      });
-
-      if (response.data == null) {
-        throw Exception('パスワードの変更に失敗しました');
-      }
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    } catch (e) {
-      throw Exception('パスワード変更エラー: ${e.toString()}');
-    }
+      }),
+      operationName: 'パスワード変更',
+    );
   }
 
   /// Logout user
@@ -227,39 +175,5 @@ class AuthRepository {
       _localStorage.saveClubId(authResponse.clubId),
       _localStorage.saveLoginState(true),
     ]);
-  }
-
-  /// Handle Dio errors and convert to user-friendly messages
-  Exception _handleDioError(DioException error) {
-    if (error.response != null) {
-      final statusCode = error.response!.statusCode;
-      final data = error.response!.data;
-
-      // Extract error message from response
-      String message = 'エラーが発生しました';
-      if (data is Map<String, dynamic>) {
-        message = data['detail'] ?? data['message'] ?? message;
-      }
-
-      switch (statusCode) {
-        case 400:
-          return Exception('入力内容に誤りがあります: $message');
-        case 401:
-          return Exception('メールアドレスまたはパスワードが正しくありません');
-        case 409:
-          return Exception('このメールアドレスは既に登録されています');
-        case 500:
-          return Exception('サーバーエラーが発生しました。時間をおいて再度お試しください');
-        default:
-          return Exception(message);
-      }
-    } else if (error.type == DioExceptionType.connectionTimeout ||
-        error.type == DioExceptionType.receiveTimeout) {
-      return Exception('接続がタイムアウトしました。ネットワーク接続を確認してください');
-    } else if (error.type == DioExceptionType.unknown) {
-      return Exception('ネットワーク接続を確認してください');
-    }
-
-    return Exception('エラーが発生しました: ${error.message}');
   }
 }

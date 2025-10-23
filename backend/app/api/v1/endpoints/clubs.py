@@ -15,6 +15,7 @@ from app.models.schemas import (
 )
 from app.dependencies import get_firestore_repository, get_current_user
 from app.repositories.firestore_repo import FirestoreRepository
+from app.utils.error_handlers import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/clubs", tags=["clubs"])
     response_model=ClubListResponse,
     summary="Get all clubs"
 )
+@handle_exceptions("Get all clubs")
 async def get_all_clubs(
     repo: FirestoreRepository = Depends(get_firestore_repository)
 ) -> ClubListResponse:
@@ -47,37 +49,29 @@ async def get_all_clubs(
     Raises:
         HTTPException: If retrieval fails
     """
-    try:
-        clubs_data = await repo.get_all_clubs()
+    clubs_data = await repo.get_all_clubs()
 
-        clubs = [
-            ClubInfo(
-                club_id=club.get("club_id", ""),
-                name=club.get("name", ""),
-                total_points=club.get("total_points", 0),
-                active_members=club.get("active_members", 0),
-                league_rank=club.get("league_rank", 0),
-                founded_year=club.get("founded_year", 1900),
-                stadium=club.get("stadium", ""),
-                logo_url=club.get("logo_url")
-            )
-            for club in clubs_data
-        ]
-
-        # Sort by total points descending
-        clubs.sort(key=lambda x: x.total_points, reverse=True)
-
-        return ClubListResponse(
-            total_clubs=len(clubs),
-            clubs=clubs
+    clubs = [
+        ClubInfo(
+            club_id=club.get("club_id", ""),
+            name=club.get("name", ""),
+            total_points=club.get("total_points", 0),
+            active_members=club.get("active_members", 0),
+            league_rank=club.get("league_rank", 0),
+            founded_year=club.get("founded_year", 1900),
+            stadium=club.get("stadium", ""),
+            logo_url=club.get("logo_url")
         )
+        for club in clubs_data
+    ]
 
-    except Exception as e:
-        logger.error(f"Error retrieving clubs: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve clubs"
-        )
+    # Sort by total points descending
+    clubs.sort(key=lambda x: x.total_points, reverse=True)
+
+    return ClubListResponse(
+        total_clubs=len(clubs),
+        clubs=clubs
+    )
 
 
 @router.get(
@@ -87,6 +81,7 @@ async def get_all_clubs(
         404: {"model": ErrorResponse, "description": "Club not found"}
     }
 )
+@handle_exceptions("Get club")
 async def get_club(
     club_id: str = Path(..., description="Club identifier"),
     repo: FirestoreRepository = Depends(get_firestore_repository)
@@ -104,34 +99,24 @@ async def get_club(
     Raises:
         HTTPException: If club not found
     """
-    try:
-        club = await repo.get_club(club_id)
+    club = await repo.get_club(club_id)
 
-        if not club:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Club {club_id} not found"
-            )
-
-        return ClubInfo(
-            club_id=club_id,
-            name=club.get("name", ""),
-            total_points=club.get("total_points", 0),
-            active_members=club.get("active_members", 0),
-            league_rank=club.get("league_rank", 0),
-            founded_year=club.get("founded_year", 1900),
-            stadium=club.get("stadium", ""),
-            logo_url=club.get("logo_url")
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving club {club_id}: {str(e)}")
+    if not club:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve club"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Club {club_id} not found"
         )
+
+    return ClubInfo(
+        club_id=club_id,
+        name=club.get("name", ""),
+        total_points=club.get("total_points", 0),
+        active_members=club.get("active_members", 0),
+        league_rank=club.get("league_rank", 0),
+        founded_year=club.get("founded_year", 1900),
+        stadium=club.get("stadium", ""),
+        logo_url=club.get("logo_url")
+    )
 
 
 @router.get(
@@ -141,6 +126,7 @@ async def get_club(
         404: {"model": ErrorResponse, "description": "Club not found"}
     }
 )
+@handle_exceptions("Get club stats")
 async def get_club_stats(
     club_id: str = Path(..., description="Club identifier"),
     repo: FirestoreRepository = Depends(get_firestore_repository)
@@ -165,43 +151,33 @@ async def get_club_stats(
     Raises:
         HTTPException: If club not found
     """
-    try:
-        club = await repo.get_club(club_id)
+    club = await repo.get_club(club_id)
 
-        if not club:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Club {club_id} not found"
-            )
-
-        # Get member count
-        member_count = await repo.get_club_members_count(club_id)
-
-        # TODO: Implement weekly/monthly points calculation
-        # TODO: Implement top contributors retrieval
-        # For Phase 1, return basic stats
-
-        return ClubStatsResponse(
-            club_id=club_id,
-            name=club.get("name", ""),
-            total_points=club.get("total_points", 0),
-            total_steps=club.get("total_steps", 0),
-            active_members=member_count,
-            weekly_points=0,  # TODO: Implement
-            monthly_points=0,  # TODO: Implement
-            league_rank=club.get("league_rank", 0),
-            weekly_rank=0,  # TODO: Implement
-            top_contributors=[]  # TODO: Implement
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving club stats for {club_id}: {str(e)}")
+    if not club:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve club statistics"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Club {club_id} not found"
         )
+
+    # Get member count
+    member_count = await repo.get_club_members_count(club_id)
+
+    # TODO: Implement weekly/monthly points calculation
+    # TODO: Implement top contributors retrieval
+    # For Phase 1, return basic stats
+
+    return ClubStatsResponse(
+        club_id=club_id,
+        name=club.get("name", ""),
+        total_points=club.get("total_points", 0),
+        total_steps=club.get("total_steps", 0),
+        active_members=member_count,
+        weekly_points=0,  # TODO: Implement
+        monthly_points=0,  # TODO: Implement
+        league_rank=club.get("league_rank", 0),
+        weekly_rank=0,  # TODO: Implement
+        top_contributors=[]  # TODO: Implement
+    )
 
 
 @router.post(
@@ -212,6 +188,7 @@ async def get_club_stats(
         401: {"model": ErrorResponse, "description": "Not authenticated"}
     }
 )
+@handle_exceptions("Join club")
 async def join_club(
     club_id: str = Path(..., description="Club identifier to join"),
     current_user: dict = Depends(get_current_user),
@@ -234,41 +211,31 @@ async def join_club(
     Raises:
         HTTPException: If club not found or update fails
     """
-    try:
-        # Verify club exists
-        club = await repo.get_club(club_id)
+    # Verify club exists
+    club = await repo.get_club(club_id)
 
-        if not club:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Club {club_id} not found"
-            )
-
-        # Get user ID from current user
-        user_id = current_user.get("user_id")
-
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User ID not found in authentication"
-            )
-
-        # Update user's club_id
-        await repo.update_user(user_id, {"club_id": club_id})
-
-        logger.info(f"User {user_id} joined club {club_id}")
-
-        return {
-            "message": f"Successfully joined {club.get('name', club_id)}",
-            "club_id": club_id,
-            "club_name": club.get("name", "")
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error joining club {club_id}: {str(e)}")
+    if not club:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to join club"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Club {club_id} not found"
         )
+
+    # Get user ID from current user
+    user_id = current_user.get("user_id")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User ID not found in authentication"
+        )
+
+    # Update user's club_id
+    await repo.update_user(user_id, {"club_id": club_id})
+
+    logger.info(f"User {user_id} joined club {club_id}")
+
+    return {
+        "message": f"Successfully joined {club.get('name', club_id)}",
+        "club_id": club_id,
+        "club_name": club.get("name", "")
+    }

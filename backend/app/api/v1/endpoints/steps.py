@@ -18,6 +18,7 @@ from app.models.schemas import (
 from app.dependencies import get_firestore_repository, get_current_user
 from app.repositories.firestore_repo import FirestoreRepository
 from app.services.step_service import StepService
+from app.utils.error_handlers import handle_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/steps", tags=["steps"])
         401: {"model": ErrorResponse, "description": "Unauthorized"}
     }
 )
+@handle_exceptions("Step sync")
 async def sync_steps(
     request: StepSyncRequest,
     current_user: dict = Depends(get_current_user),
@@ -58,36 +60,23 @@ async def sync_steps(
     Raises:
         HTTPException: If sync fails
     """
-    try:
-        user_id = current_user["user_id"]
-        step_service = StepService(repo)
+    user_id = current_user["user_id"]
+    step_service = StepService(repo)
 
-        result = await step_service.sync_steps(
-            user_id=user_id,
-            steps=request.steps,
-            date=request.date,
-            source=request.source,
-            device_signature=request.device_signature
-        )
+    result = await step_service.sync_steps(
+        user_id=user_id,
+        steps=request.steps,
+        date=request.date,
+        source=request.source,
+        device_signature=request.device_signature
+    )
 
-        return StepSyncResponse(
-            points_earned=result["points_earned"],
-            total_points=result["total_points"],
-            club_contribution=result["club_contribution"],
-            is_verified=result.get("is_verified", True)
-        )
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Step sync error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to sync steps"
-        )
+    return StepSyncResponse(
+        points_earned=result["points_earned"],
+        total_points=result["total_points"],
+        club_contribution=result["club_contribution"],
+        is_verified=result.get("is_verified", True)
+    )
 
 
 @router.get(
@@ -97,6 +86,7 @@ async def sync_steps(
         401: {"model": ErrorResponse, "description": "Unauthorized"}
     }
 )
+@handle_exceptions("Get step history")
 async def get_step_history(
     days: int = Query(default=30, ge=1, le=365, description="Number of days to retrieve"),
     current_user: dict = Depends(get_current_user),
@@ -116,36 +106,28 @@ async def get_step_history(
     Raises:
         HTTPException: If retrieval fails
     """
-    try:
-        user_id = current_user["user_id"]
-        step_service = StepService(repo)
+    user_id = current_user["user_id"]
+    step_service = StepService(repo)
 
-        history = await step_service.get_user_history(user_id, days)
+    history = await step_service.get_user_history(user_id, days)
 
-        # Convert to StepHistoryItem objects
-        history_items = [
-            StepHistoryItem(
-                date=log.get("date", ""),
-                steps=log.get("steps", 0),
-                points=log.get("points", 0),
-                source=log.get("source", ""),
-                created_at=log.get("created_at")
-            )
-            for log in history
-        ]
-
-        return StepHistoryResponse(
-            user_id=user_id,
-            total_records=len(history_items),
-            history=history_items
+    # Convert to StepHistoryItem objects
+    history_items = [
+        StepHistoryItem(
+            date=log.get("date", ""),
+            steps=log.get("steps", 0),
+            points=log.get("points", 0),
+            source=log.get("source", ""),
+            created_at=log.get("created_at")
         )
+        for log in history
+    ]
 
-    except Exception as e:
-        logger.error(f"History retrieval error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve step history"
-        )
+    return StepHistoryResponse(
+        user_id=user_id,
+        total_records=len(history_items),
+        history=history_items
+    )
 
 
 @router.get(
@@ -155,6 +137,7 @@ async def get_step_history(
         401: {"model": ErrorResponse, "description": "Unauthorized"}
     }
 )
+@handle_exceptions("Get step stats")
 async def get_step_stats(
     current_user: dict = Depends(get_current_user),
     repo: FirestoreRepository = Depends(get_firestore_repository)
@@ -179,22 +162,9 @@ async def get_step_stats(
     Raises:
         HTTPException: If retrieval fails
     """
-    try:
-        user_id = current_user["user_id"]
-        step_service = StepService(repo)
+    user_id = current_user["user_id"]
+    step_service = StepService(repo)
 
-        stats = await step_service.get_user_stats(user_id)
+    stats = await step_service.get_user_stats(user_id)
 
-        return StepStatsResponse(**stats)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Stats retrieval error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve statistics"
-        )
+    return StepStatsResponse(**stats)

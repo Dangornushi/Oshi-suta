@@ -22,6 +22,7 @@ from app.dependencies import get_firestore_repository, get_current_user
 from app.repositories.firestore_repo import FirestoreRepository
 from app.utils.validators import validate_club_id, validate_nickname
 from app.utils.security import hash_password, verify_password, create_access_token, verify_password_with_firebase
+from app.utils.error_handlers import handle_exceptions, validate_and_raise, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
         409: {"model": ErrorResponse, "description": "User already exists"}
     }
 )
+@handle_exceptions("User registration")
 async def register(
     request: UserRegisterRequest,
     repo: FirestoreRepository = Depends(get_firestore_repository)
@@ -56,87 +58,72 @@ async def register(
     Raises:
         HTTPException: If registration fails
     """
-    try:
-        # Validate club ID
-        if not validate_club_id(request.club_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid club ID: {request.club_id}"
-            )
+    # Validate club ID
+    validate_and_raise(
+        validate_club_id(request.club_id),
+        f"Invalid club ID: {request.club_id}"
+    )
 
-        # Validate nickname
-        is_valid, error_msg = validate_nickname(request.nickname)
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
-            )
+    # Validate nickname
+    is_valid, error_msg = validate_nickname(request.nickname)
+    validate_and_raise(is_valid, error_msg)
 
-        # Check if user already exists
-        existing_user = await repo.get_user_by_email(request.email)
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User with this email already exists"
-            )
-
-        # Create user in Firebase Auth
-        try:
-            firebase_user = firebase_auth.create_user(
-                email=request.email,
-                password=request.password,
-                display_name=request.nickname
-            )
-            user_id = firebase_user.uid
-        except firebase_auth.EmailAlreadyExistsError:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already in use"
-            )
-        except Exception as e:
-            logger.error(f"Firebase Auth error: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create user account"
-            )
-
-        # Create user document in Firestore
-        user_data = {
-            "email": request.email,
-            "nickname": request.nickname,
-            "club_id": request.club_id,
-            "total_points": 0,
-            "total_steps": 0
-        }
-
-        await repo.create_user(user_id, user_data)
-
-        # Increment club member count
-        await repo.get_club(request.club_id)  # Ensure club exists
-        # Note: In production, you'd want to increment active_members here
-
-        # Generate access token
-        access_token = create_access_token(data={"sub": user_id, "email": request.email})
-
-        logger.info(f"User registered successfully: {user_id}")
-
-        return UserLoginResponse(
-            access_token=access_token,
-            token_type="bearer",
-            user_id=user_id,
-            email=request.email,
-            nickname=request.nickname,
-            club_id=request.club_id
+    # Check if user already exists
+    existing_user = await repo.get_user_by_email(request.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists"
         )
 
-    except HTTPException:
-        raise
+    # Create user in Firebase Auth
+    try:
+        firebase_user = firebase_auth.create_user(
+            email=request.email,
+            password=request.password,
+            display_name=request.nickname
+        )
+        user_id = firebase_user.uid
+    except firebase_auth.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already in use"
+        )
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
+        logger.error(f"Firebase Auth error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed"
+            detail="Failed to create user account"
         )
+
+    # Create user document in Firestore
+    user_data = {
+        "email": request.email,
+        "nickname": request.nickname,
+        "club_id": request.club_id,
+        "total_points": 0,
+        "total_steps": 0
+    }
+
+    await repo.create_user(user_id, user_data)
+
+    # Increment club member count
+    await repo.get_club(request.club_id)  # Ensure club exists
+    # Note: In production, you'd want to increment active_members here
+
+    # Generate access token
+    access_token = create_access_token(data={"sub": user_id, "email": request.email})
+
+    logger.info(f"User registered successfully: {user_id}")
+
+    return UserLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=user_id,
+        email=request.email,
+        nickname=request.nickname,
+        club_id=request.club_id
+    )
 
 
 @router.post(
@@ -146,6 +133,7 @@ async def register(
         401: {"model": ErrorResponse, "description": "Invalid credentials"}
     }
 )
+@handle_exceptions("User login")
 async def login(
     request: UserLoginRequest,
     repo: FirestoreRepository = Depends(get_firestore_repository)
@@ -165,50 +153,40 @@ async def login(
     Raises:
         HTTPException: If login fails
     """
-    try:
-        # Step 1: Verify password with Firebase Auth
-        firebase_result = verify_password_with_firebase(request.email, request.password)
+    # Step 1: Verify password with Firebase Auth
+    firebase_result = verify_password_with_firebase(request.email, request.password)
 
-        if not firebase_result:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password"
-            )
-
-        # Step 2: Get user info from Firestore using Firebase UID
-        firebase_uid = firebase_result.get("local_id")
-        user = await repo.get_user(firebase_uid)
-
-        if not user:
-            # User exists in Firebase Auth but not in Firestore
-            logger.error(f"User {firebase_uid} exists in Firebase Auth but not in Firestore")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User data not found"
-            )
-
-        # Step 3: Generate our own access token
-        access_token = create_access_token(data={"sub": firebase_uid, "email": request.email})
-
-        logger.info(f"User {firebase_uid} logged in successfully")
-
-        return UserLoginResponse(
-            access_token=access_token,
-            token_type="bearer",
-            user_id=firebase_uid,
-            email=user["email"],
-            nickname=user["nickname"],
-            club_id=user["club_id"]
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+    if not firebase_result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed"
+            detail="Invalid email or password"
         )
+
+    # Step 2: Get user info from Firestore using Firebase UID
+    firebase_uid = firebase_result.get("local_id")
+    user = await repo.get_user(firebase_uid)
+
+    if not user:
+        # User exists in Firebase Auth but not in Firestore
+        logger.error(f"User {firebase_uid} exists in Firebase Auth but not in Firestore")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User data not found"
+        )
+
+    # Step 3: Generate our own access token
+    access_token = create_access_token(data={"sub": firebase_uid, "email": request.email})
+
+    logger.info(f"User {firebase_uid} logged in successfully")
+
+    return UserLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=firebase_uid,
+        email=user["email"],
+        nickname=user["nickname"],
+        club_id=user["club_id"]
+    )
 
 
 @router.get(
@@ -250,6 +228,7 @@ async def get_profile(
         401: {"model": ErrorResponse, "description": "Unauthorized"}
     }
 )
+@handle_exceptions("Profile update")
 async def update_profile(
     request: UserProfileUpdateRequest,
     current_user: dict = Depends(get_current_user),
@@ -269,53 +248,38 @@ async def update_profile(
     Raises:
         HTTPException: If update fails
     """
-    try:
-        update_data = {}
+    update_data = {}
 
-        # Validate and add nickname if provided
-        if request.nickname:
-            is_valid, error_msg = validate_nickname(request.nickname)
-            if not is_valid:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=error_msg
-                )
-            update_data["nickname"] = request.nickname
+    # Validate and add nickname if provided
+    if request.nickname:
+        is_valid, error_msg = validate_nickname(request.nickname)
+        validate_and_raise(is_valid, error_msg)
+        update_data["nickname"] = request.nickname
 
-        # Validate and add club_id if provided
-        if request.club_id:
-            if not validate_club_id(request.club_id):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid club ID: {request.club_id}"
-                )
-            update_data["club_id"] = request.club_id
-
-        # Update user in Firestore
-        if update_data:
-            await repo.update_user(current_user["user_id"], update_data)
-
-        # Get updated user data
-        updated_user = await repo.get_user(current_user["user_id"])
-
-        return UserProfileResponse(
-            user_id=current_user["user_id"],
-            email=updated_user["email"],
-            nickname=updated_user["nickname"],
-            club_id=updated_user["club_id"],
-            total_points=updated_user.get("total_points", 0),
-            created_at=updated_user.get("created_at"),
-            updated_at=updated_user.get("updated_at")
+    # Validate and add club_id if provided
+    if request.club_id:
+        validate_and_raise(
+            validate_club_id(request.club_id),
+            f"Invalid club ID: {request.club_id}"
         )
+        update_data["club_id"] = request.club_id
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Profile update error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
-        )
+    # Update user in Firestore
+    if update_data:
+        await repo.update_user(current_user["user_id"], update_data)
+
+    # Get updated user data
+    updated_user = await repo.get_user(current_user["user_id"])
+
+    return UserProfileResponse(
+        user_id=current_user["user_id"],
+        email=updated_user["email"],
+        nickname=updated_user["nickname"],
+        club_id=updated_user["club_id"],
+        total_points=updated_user.get("total_points", 0),
+        created_at=updated_user.get("created_at"),
+        updated_at=updated_user.get("updated_at")
+    )
 
 
 @router.put(
@@ -327,6 +291,7 @@ async def update_profile(
         409: {"model": ErrorResponse, "description": "Email already in use"}
     }
 )
+@handle_exceptions("Email update")
 async def update_email(
     request: EmailUpdateRequest,
     current_user: dict = Depends(get_current_user),
@@ -346,71 +311,61 @@ async def update_email(
     Raises:
         HTTPException: If update fails
     """
+    # Step 1: Verify current password
+    verify_result = verify_password_with_firebase(
+        current_user["email"],
+        request.password
+    )
+
+    if not verify_result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password"
+        )
+
+    # Step 2: Check if new email is already in use
+    existing_user = await repo.get_user_by_email(request.new_email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already in use"
+        )
+
+    # Step 3: Update email in Firebase Auth
     try:
-        # Step 1: Verify current password
-        verify_result = verify_password_with_firebase(
-            current_user["email"],
-            request.password
+        firebase_auth.update_user(
+            current_user["user_id"],
+            email=request.new_email
         )
-
-        if not verify_result:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid password"
-            )
-
-        # Step 2: Check if new email is already in use
-        existing_user = await repo.get_user_by_email(request.new_email)
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already in use"
-            )
-
-        # Step 3: Update email in Firebase Auth
-        try:
-            firebase_auth.update_user(
-                current_user["user_id"],
-                email=request.new_email
-            )
-        except firebase_auth.EmailAlreadyExistsError:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already in use"
-            )
-        except Exception as e:
-            logger.error(f"Firebase Auth email update error: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update email in authentication system"
-            )
-
-        # Step 4: Update email in Firestore
-        await repo.update_user(current_user["user_id"], {"email": request.new_email})
-
-        # Step 5: Get updated user data
-        updated_user = await repo.get_user(current_user["user_id"])
-
-        logger.info(f"Email updated successfully for user: {current_user['user_id']}")
-
-        return UserProfileResponse(
-            user_id=current_user["user_id"],
-            email=updated_user["email"],
-            nickname=updated_user["nickname"],
-            club_id=updated_user["club_id"],
-            total_points=updated_user.get("total_points", 0),
-            created_at=updated_user.get("created_at"),
-            updated_at=updated_user.get("updated_at")
+    except firebase_auth.EmailAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already in use"
         )
-
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Email update error: {str(e)}")
+        logger.error(f"Firebase Auth email update error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update email"
+            detail="Failed to update email in authentication system"
         )
+
+    # Step 4: Update email in Firestore
+    await repo.update_user(current_user["user_id"], {"email": request.new_email})
+
+    # Step 5: Get updated user data
+    updated_user = await repo.get_user(current_user["user_id"])
+
+    logger.info(f"Email updated successfully for user: {current_user['user_id']}")
+
+    return UserProfileResponse(
+        user_id=current_user["user_id"],
+        email=updated_user["email"],
+        nickname=updated_user["nickname"],
+        club_id=updated_user["club_id"],
+        total_points=updated_user.get("total_points", 0),
+        created_at=updated_user.get("created_at"),
+        updated_at=updated_user.get("updated_at")
+    )
 
 
 @router.put(
@@ -421,6 +376,7 @@ async def update_email(
         401: {"model": ErrorResponse, "description": "Unauthorized or invalid password"}
     }
 )
+@handle_exceptions("Password change")
 async def change_password(
     request: PasswordChangeRequest,
     current_user: dict = Depends(get_current_user)
@@ -438,51 +394,41 @@ async def change_password(
     Raises:
         HTTPException: If password change fails
     """
-    try:
-        # Step 1: Verify current password
-        verify_result = verify_password_with_firebase(
-            current_user["email"],
-            request.current_password
+    # Step 1: Verify current password
+    verify_result = verify_password_with_firebase(
+        current_user["email"],
+        request.current_password
+    )
+
+    if not verify_result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid current password"
         )
 
-        if not verify_result:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid current password"
-            )
+    # Step 2: Check new password is different from current
+    if request.current_password == request.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from current password"
+        )
 
-        # Step 2: Check new password is different from current
-        if request.current_password == request.new_password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="New password must be different from current password"
-            )
-
-        # Step 3: Update password in Firebase Auth
-        try:
-            firebase_auth.update_user(
-                current_user["user_id"],
-                password=request.new_password
-            )
-        except Exception as e:
-            logger.error(f"Firebase Auth password update error: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update password"
-            )
-
-        logger.info(f"Password updated successfully for user: {current_user['user_id']}")
-
-        return {
-            "message": "Password updated successfully",
-            "user_id": current_user["user_id"]
-        }
-
-    except HTTPException:
-        raise
+    # Step 3: Update password in Firebase Auth
+    try:
+        firebase_auth.update_user(
+            current_user["user_id"],
+            password=request.new_password
+        )
     except Exception as e:
-        logger.error(f"Password change error: {str(e)}")
+        logger.error(f"Firebase Auth password update error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to change password"
+            detail="Failed to update password"
         )
+
+    logger.info(f"Password updated successfully for user: {current_user['user_id']}")
+
+    return {
+        "message": "Password updated successfully",
+        "user_id": current_user["user_id"]
+    }
