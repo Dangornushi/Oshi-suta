@@ -15,7 +15,7 @@ sys.path.insert(0, str(backend_dir))
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-from app.config import settings
+from app.settings import settings
 
 # Configure logging
 logging.basicConfig(

@@ -16,7 +16,7 @@ async def test_register_user():
             json={
                 "email": "test@example.com",
                 "password": "TestPass123",
-                "club_id": "urawa_reds",
+                "club_id": "urawa-reds",
                 "nickname": "TestUser"
             }
         )
@@ -34,7 +34,7 @@ async def test_register_invalid_club():
             json={
                 "email": "test@example.com",
                 "password": "TestPass123",
-                "club_id": "invalid_club",
+                "club_id": "invalid-club",
                 "nickname": "TestUser"
             }
         )
@@ -51,7 +51,7 @@ async def test_register_weak_password():
             json={
                 "email": "test@example.com",
                 "password": "weak",
-                "club_id": "urawa_reds",
+                "club_id": "urawa-reds",
                 "nickname": "TestUser"
             }
         )

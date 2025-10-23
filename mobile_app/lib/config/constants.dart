@@ -8,7 +8,23 @@ class AppConstants {
   static const String apiVersion = 'v1';
   static const String apiPrefix = '/api/$apiVersion';
 
-  // Health Data
+  // Club IDs (synchronized with backend)
+  static const List<String> validClubIds = [
+    'urawa-reds',
+    'kashima-antlers',
+    'yokohama-fmarinos',
+    'fc-tokyo',
+    'kawasaki-frontale',
+    'gamba-osaka',
+    'cerezo-osaka',
+    'nagoya-grampus',
+    'vissel-kobe',
+    'sanfrecce-hiroshima',
+    'consadole-sapporo',
+    'shimizu-spulse',
+  ];
+
+  // Health Data (synchronized with backend)
   static const int stepsToPointsRatio = 1000; // 1000 steps = 1 point
   static const int maxDailySteps = 100000;
 
@@ -18,8 +34,9 @@ class AppConstants {
   // Cache
   static const Duration cacheExpiration = Duration(minutes: 5);
 
-  // Pagination
+  // Pagination (synchronized with backend)
   static const int defaultPageSize = 20;
+  static const int maxPageSize = 100;
 }
 
 /// Local storage keys

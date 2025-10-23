@@ -12,7 +12,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth as firebase_auth
 import redis.asyncio as aioredis
 
-from app.config import settings
+from app.settings import settings
 from app.repositories.firestore_repo import FirestoreRepository
 
 logger = logging.getLogger(__name__)

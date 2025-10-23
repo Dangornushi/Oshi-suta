@@ -64,10 +64,6 @@ class Settings(BaseSettings):
     ENV: str = Field(default="development")
     DEBUG: bool = Field(default=True)
 
-    # Points Configuration
-    STEPS_PER_POINT: int = Field(default=1000)
-    MAX_DAILY_STEPS: int = Field(default=100000)
-
     model_config = SettingsConfigDict(
         env_file=None,  # Don't load .env file in Docker
         env_file_encoding="utf-8",

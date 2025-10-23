@@ -10,7 +10,7 @@ import redis.asyncio as aioredis
 
 from app.models.schemas import HealthCheckResponse
 from app.dependencies import get_redis_client
-from app.config import settings
+from app.settings import settings
 import app.dependencies as deps
 
 router = APIRouter(tags=["health"])

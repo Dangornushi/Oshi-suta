@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-from app.config import settings
+from app.settings import settings
 
 # J-League club data
 CLUBS_DATA = [
@@ -59,7 +59,7 @@ CLUBS_DATA = [
         "logo_url": None,
     },
     {
-        "club_id": "yokohama-f-marinos",
+        "club_id": "yokohama-fmarinos",
         "name": "横浜F・マリノス",
         "total_points": 0,
         "active_members": 0,
@@ -149,7 +149,7 @@ CLUBS_DATA = [
         "logo_url": None,
     },
     {
-        "club_id": "shimizu-s-pulse",
+        "club_id": "shimizu-spulse",
         "name": "清水エスパルス",
         "total_points": 0,
         "active_members": 0,

@@ -11,7 +11,7 @@ import logging
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from app.config import settings
+from app.settings import settings
 
 logger = logging.getLogger(__name__)
 

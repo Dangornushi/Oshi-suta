@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.config import settings
+from app.settings import settings
 from app.api.v1.router import api_router
 from app.dependencies import initialize_firebase, initialize_redis, close_redis
 

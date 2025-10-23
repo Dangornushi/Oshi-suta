@@ -5,7 +5,7 @@ This module handles the conversion of steps to points and related calculations.
 """
 
 import logging
-from app.config import settings
+from app.config.constants import STEPS_PER_POINT, MAX_DAILY_STEPS
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,9 @@ class PointCalculator:
 
         Args:
             steps_per_point: Number of steps required for one point.
-                           Defaults to settings.STEPS_PER_POINT (1000)
+                           Defaults to STEPS_PER_POINT (1000)
         """
-        self.steps_per_point = steps_per_point or settings.STEPS_PER_POINT
+        self.steps_per_point = steps_per_point or STEPS_PER_POINT
 
     def calculate_points(self, steps: int) -> int:
         """
@@ -125,8 +125,7 @@ class PointCalculator:
         Returns:
             True if within limit, False otherwise
         """
-        max_steps = settings.MAX_DAILY_STEPS
-        if steps > max_steps:
-            logger.warning(f"Steps {steps} exceeds daily limit {max_steps}")
+        if steps > MAX_DAILY_STEPS:
+            logger.warning(f"Steps {steps} exceeds daily limit {MAX_DAILY_STEPS}")
             return False
         return True

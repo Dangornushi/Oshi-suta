@@ -6,23 +6,17 @@ This module provides validation functions for various data types used in the app
 
 import re
 from datetime import datetime
-from typing import Set
-
-# J-League club IDs (Phase 1 - sample clubs)
-VALID_CLUB_IDS: Set[str] = {
-    "urawa_reds",
-    "kashima_antlers",
-    "yokohama_fmarinos",
-    "fc_tokyo",
-    "kawasaki_frontale",
-    "gamba_osaka",
-    "cerezo_osaka",
-    "nagoya_grampus",
-    "vissel_kobe",
-    "sanfrecce_hiroshima",
-    "consadole_sapporo",
-    "shimizu_spulse",
-}
+from app.config.constants import (
+    VALID_CLUB_IDS,
+    MIN_NICKNAME_LENGTH,
+    MAX_NICKNAME_LENGTH,
+    MIN_PASSWORD_LENGTH,
+    MAX_PASSWORD_LENGTH,
+    MIN_DEVICE_SIGNATURE_LENGTH,
+    MAX_DEVICE_SIGNATURE_LENGTH,
+    MIN_STEPS,
+    MAX_STEPS,
+)
 
 
 def validate_steps(steps: int) -> bool:
@@ -43,7 +37,7 @@ def validate_steps(steps: int) -> bool:
         >>> validate_steps(150000)
         False
     """
-    return 0 <= steps <= 100000
+    return MIN_STEPS <= steps <= MAX_STEPS
 
 
 def validate_date_format(date_str: str) -> bool:
@@ -109,9 +103,9 @@ def validate_club_id(club_id: str) -> bool:
         True if valid, False otherwise
 
     Examples:
-        >>> validate_club_id("urawa_reds")
+        >>> validate_club_id("urawa-reds")
         True
-        >>> validate_club_id("invalid_club")
+        >>> validate_club_id("invalid-club")
         False
     """
     return club_id in VALID_CLUB_IDS
@@ -153,11 +147,11 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
         >>> validate_password_strength("weak")
         (False, 'Password must be at least 8 characters long')
     """
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
 
-    if len(password) > 100:
-        return False, "Password must be less than 100 characters"
+    if len(password) > MAX_PASSWORD_LENGTH:
+        return False, f"Password must be less than {MAX_PASSWORD_LENGTH} characters"
 
     if not any(c.isupper() for c in password):
         return False, "Password must contain at least one uppercase letter"
@@ -187,11 +181,11 @@ def validate_nickname(nickname: str) -> tuple[bool, str]:
         >>> validate_nickname("A")
         (False, 'Nickname must be between 2 and 50 characters')
     """
-    if len(nickname) < 2:
-        return False, "Nickname must be between 2 and 50 characters"
+    if len(nickname) < MIN_NICKNAME_LENGTH:
+        return False, f"Nickname must be between {MIN_NICKNAME_LENGTH} and {MAX_NICKNAME_LENGTH} characters"
 
-    if len(nickname) > 50:
-        return False, "Nickname must be between 2 and 50 characters"
+    if len(nickname) > MAX_NICKNAME_LENGTH:
+        return False, f"Nickname must be between {MIN_NICKNAME_LENGTH} and {MAX_NICKNAME_LENGTH} characters"
 
     # Allow alphanumeric, spaces, and common special characters
     pattern = r"^[a-zA-Z0-9\s\-_あ-んア-ン一-龥]+$"
@@ -211,4 +205,4 @@ def validate_device_signature(signature: str) -> bool:
     Returns:
         True if valid, False otherwise
     """
-    return 1 <= len(signature) <= 200
+    return MIN_DEVICE_SIGNATURE_LENGTH <= len(signature) <= MAX_DEVICE_SIGNATURE_LENGTH
