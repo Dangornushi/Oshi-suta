@@ -56,25 +56,38 @@ class OshiSutaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiRepositoryProvider(
       providers: [
-        BlocProvider(
-          create: (context) => AuthBloc(authRepository: authRepository)
-            ..add(const AuthCheckRequested()), // Check initial auth status
+        RepositoryProvider<AuthRepository>.value(
+          value: authRepository,
         ),
-        BlocProvider(
-          create: (context) => ClubBloc(
-            apiClient: apiClient,
-            localStorage: localStorage,
-          )..add(const LoadFavoriteClub()), // Load favorite club on startup
+        RepositoryProvider<ApiClient>.value(
+          value: apiClient,
+        ),
+        RepositoryProvider<LocalStorage>.value(
+          value: localStorage,
         ),
       ],
-      child: MaterialApp(
-        title: 'Oshi-Suta BATTLE',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (context) => AuthBloc(authRepository: authRepository)
+              ..add(const AuthCheckRequested()), // Check initial auth status
+          ),
+          BlocProvider(
+            create: (context) => ClubBloc(
+              apiClient: apiClient,
+              localStorage: localStorage,
+            )..add(const LoadFavoriteClub()), // Load favorite club on startup
+          ),
+        ],
+        child: MaterialApp(
+          title: 'Oshi-Suta BATTLE',
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+          ),
+          home: LoginScreen(),
         ),
-        home: LoginScreen(),
       ),
     );
   }

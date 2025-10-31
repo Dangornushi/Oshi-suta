@@ -3,37 +3,43 @@
 ## 🎯 目的
 モバイルアプリのリポジトリ層で繰り返されているAPI呼び出しパターンを共通化し、コードの重複を削減する。
 
-## 📊 現在の問題
+## 📊 現在の状況
 
-`AuthRepository` の全8メソッドで同じパターンが繰り返されている:
+### ✅ 完了済み
+- `ErrorHandler` クラスの実装 (`lib/core/error/error_handler.dart`)
+- `BaseRepository` 基底クラスの作成 (`lib/data/repositories/base_repository.dart`)
+  - `executeApiCall` メソッド実装済み
+- `AuthRepository` のリファクタリング完了（BaseRepositoryを継承、全メソッドで`executeApiCall`を使用）
 
+### 🔄 実装状況
+
+**現在の `BaseRepository` の実装**:
 ```dart
-// mobile_app/lib/data/repositories/auth_repository.dart
-Future<AuthResponse> login(LoginRequest request) async {
-  try {
-    final response = await _apiClient.login(request);
-
-    if (response.data == null) {
-      throw Exception('ログインに失敗しました');
-    }
-
-    return response.data!;
-  } on DioException catch (e) {
-    throw _handleDioError(e);
-  } catch (e) {
-    throw Exception('ログインエラー: ${e.toString()}');
+// mobile_app/lib/data/repositories/base_repository.dart (実装済み)
+abstract class BaseRepository {
+  Future<T> executeApiCall<T>({
+    required Future<HttpResponse<T>> Function() apiCall,
+    required String operationName,
+  }) async {
+    // 実装済み
   }
-}
 
-// register, getProfile, updateProfile など全メソッドで同じパターン
+  // 未実装:
+  // - executeListApiCall<T>
+  // - executeVoidApiCall
+}
 ```
 
-**重複箇所**:
-- `auth_repository.dart`: 8メソッド（login, register, getProfile, updateProfile, updateEmail, changePassword, syncSteps等）
+### 🚧 残りのタスク
+1. `BaseRepository` に追加メソッドを実装（オプション）
+2. `StepsRepository` を作成（未着手）
+3. `ClubsRepository` を作成（未着手）
+4. `ClubBloc` を `ClubsRepository` に移行（現在は `ApiClient` を直接使用中）
+5. その他のBLoCをリポジトリパターンに移行（必要に応じて）
 
 ## 📋 実装手順
 
-### ステップ1: 基底リポジトリクラスを作成
+### ✅ ステップ1: 基底リポジトリクラスを作成（完了）
 
 `mobile_app/lib/data/repositories/base_repository.dart` を新規作成:
 
@@ -128,7 +134,7 @@ abstract class BaseRepository {
 }
 ```
 
-### ステップ2: ErrorHandlerを実装
+### ✅ ステップ2: ErrorHandlerを実装（完了）
 
 `mobile_app/lib/core/error/error_handler.dart` を作成（02_HIGHと同じ内容）:
 
@@ -225,11 +231,11 @@ class ErrorHandler {
 }
 ```
 
-### ステップ3: AuthRepositoryをリファクタリング
+### ✅ ステップ3: AuthRepositoryをリファクタリング（完了）
 
 `mobile_app/lib/data/repositories/auth_repository.dart` を修正:
 
-**修正前** (211行):
+**修正前の例** (旧パターン):
 ```dart
 import 'package:dio/dio.dart';
 import '../../core/network/api_client.dart';
@@ -281,7 +287,7 @@ class AuthRepository {
 }
 ```
 
-**修正後** (約60行 - 70%削減):
+**修正後（現在の実装）**:
 ```dart
 import '../../core/network/api_client.dart';
 import '../models/auth_response.dart';
@@ -343,7 +349,7 @@ class AuthRepository extends BaseRepository {
 }
 ```
 
-### ステップ4: StepsRepositoryを作成
+### 🚧 ステップ4: StepsRepositoryを作成（未着手）
 
 `mobile_app/lib/data/repositories/steps_repository.dart` を新規作成:
 
@@ -390,7 +396,7 @@ class StepsRepository extends BaseRepository {
 }
 ```
 
-### ステップ5: ClubsRepositoryを作成
+### 🚧 ステップ5: ClubsRepositoryを作成（未着手）
 
 `mobile_app/lib/data/repositories/clubs_repository.dart` を新規作成:
 
@@ -440,9 +446,9 @@ class ClubsRepository extends BaseRepository {
 }
 ```
 
-### ステップ6: 依存性注入の設定
+### 🚧 ステップ6: 依存性注入の設定（一部完了）
 
-`mobile_app/lib/main.dart` でリポジトリを登録:
+`mobile_app/lib/main.dart` でリポジトリを登録（AuthRepositoryは登録済み、StepsRepositoryとClubsRepositoryは未登録）:
 
 ```dart
 import 'package:flutter/material.dart';

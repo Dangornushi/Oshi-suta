@@ -2,25 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/club/bloc/club_bloc.dart';
 import '../features/club/bloc/club_state.dart';
+import '../features/auth/bloc/auth_bloc.dart';
+import '../features/auth/bloc/auth_event.dart';
+import '../features/auth/bloc/auth_state.dart';
 import '../widgets/custom_card.dart';
 import 'club_selection_screen.dart';
 import 'profile_screen.dart';
+import 'login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('設定'),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        // ログアウト成功時にログイン画面に遷移
+        if (state is AuthUnauthenticated) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+            (route) => false,
+          );
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('設定'),
+          elevation: 0,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Account section
             const _SectionTitle(title: 'アカウント'),
             const SizedBox(height: 12),
@@ -63,6 +77,16 @@ class SettingsScreen extends StatelessWidget {
                   },
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            _buildSettingCard(
+              context: context,
+              icon: Icons.logout,
+              iconColor: const Color(0xFFE53935),
+              iconBgColor: const Color(0xFFFFCDD2),
+              title: 'ログアウト',
+              subtitle: 'アカウントからログアウト',
+              onTap: () => _showLogoutDialog(context),
             ),
             const SizedBox(height: 24),
 
@@ -178,8 +202,37 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 24),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// ログアウト確認ダイアログを表示
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ログアウト'),
+        content: const Text('本当にログアウトしますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              // AuthBlocにログアウトイベントを送信
+              context.read<AuthBloc>().add(const AuthLogoutRequested());
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFE53935),
+            ),
+            child: const Text('ログアウト'),
+          ),
+        ],
       ),
     );
   }
