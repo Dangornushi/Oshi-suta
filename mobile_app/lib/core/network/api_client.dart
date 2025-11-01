@@ -6,6 +6,7 @@ import '../../data/models/club_model.dart';
 import '../../data/models/club_list_response.dart';
 import '../../data/models/step_log_model.dart';
 import '../../data/models/auth_response.dart';
+import '../../data/models/player_model.dart';
 
 part 'api_client.g.dart';
 
@@ -164,6 +165,27 @@ abstract class ApiClient {
   /// POST /clubs/leave
   @POST('/clubs/leave')
   Future<HttpResponse<dynamic>> leaveClub();
+
+  // ============================================================================
+  // Player Endpoints
+  // ============================================================================
+
+  /// Get list of all players
+  ///
+  /// GET /players
+  /// Query params: club_id (optional)
+  @GET('/players')
+  Future<HttpResponse<PlayerListResponse>> getPlayers({
+    @Query('club_id') String? clubId,
+  });
+
+  /// Get player by ID
+  ///
+  /// GET /players/{id}
+  @GET('/players/{id}')
+  Future<HttpResponse<PlayerModel>> getPlayerById(
+    @Path('id') String id,
+  );
 
   // ============================================================================
   // Health Check Endpoints

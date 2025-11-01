@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/custom_card.dart';
 import '../widgets/custom_badge.dart';
+import '../core/network/api_client.dart';
+import '../data/repositories/player_repository.dart';
+import '../features/player/bloc/player_bloc.dart';
+import '../features/player/bloc/player_event.dart';
+import '../features/player/bloc/player_state.dart';
+import '../data/models/player_model.dart';
 
 class CollectionScreen extends StatefulWidget {
   const CollectionScreen({Key? key}) : super(key: key);
@@ -12,89 +19,6 @@ class CollectionScreen extends StatefulWidget {
 class _CollectionScreenState extends State<CollectionScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<Map<String, dynamic>> playerCards = [
-    {
-      'id': 1,
-      'name': '西川周作',
-      'number': 1,
-      'position': 'GK',
-      'rarity': 'SR',
-      'week': 25,
-      'image': '🧤',
-      'owned': true
-    },
-    {
-      'id': 2,
-      'name': 'ホセ・カンテ',
-      'number': 10,
-      'position': 'MF',
-      'rarity': 'SSR',
-      'week': 24,
-      'image': '⚡',
-      'owned': true
-    },
-    {
-      'id': 3,
-      'name': '興梠慎三',
-      'number': 9,
-      'position': 'FW',
-      'rarity': 'SR',
-      'week': 24,
-      'image': '⚽',
-      'owned': true
-    },
-    {
-      'id': 4,
-      'name': '岩波拓也',
-      'number': 5,
-      'position': 'DF',
-      'rarity': 'R',
-      'week': 23,
-      'image': '🛡️',
-      'owned': true
-    },
-    {
-      'id': 5,
-      'name': 'マリウス',
-      'number': 15,
-      'position': 'FW',
-      'rarity': 'SR',
-      'week': 23,
-      'image': '🔥',
-      'owned': true
-    },
-    {
-      'id': 6,
-      'name': '小泉佳穂',
-      'number': 26,
-      'position': 'MF',
-      'rarity': 'R',
-      'week': 22,
-      'image': '💫',
-      'owned': true
-    },
-    {
-      'id': 7,
-      'name': '明本考浩',
-      'number': 7,
-      'position': 'MF',
-      'rarity': 'SR',
-      'week': 25,
-      'image': '🌟',
-      'owned': false
-    },
-    {
-      'id': 8,
-      'name': '酒井宏樹',
-      'number': 2,
-      'position': 'DF',
-      'rarity': 'SSR',
-      'week': 25,
-      'image': '🏃',
-      'owned': false
-    },
-  ];
 
   final List<Map<String, dynamic>> badges = [
     {
@@ -155,13 +79,19 @@ class _CollectionScreenState extends State<CollectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final ownedCards = playerCards.where((c) => c['owned'] == true).length;
     final ownedBadges = badges.where((b) => b['owned'] == true).length;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
+    return BlocProvider(
+      create: (context) {
+        final apiClient = context.read<ApiClient>();
+        final playerRepository = PlayerRepository(apiClient);
+        return PlayerBloc(playerRepository)
+          ..add(const LoadPlayers(clubId: 'kashima-antlers'));
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
             const SizedBox(height: 16),
             // Header
             const Text(
@@ -247,12 +177,17 @@ class _CollectionScreenState extends State<CollectionScreen>
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                '$ownedCards / ${playerCards.length}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                ),
+                              BlocBuilder<PlayerBloc, PlayerState>(
+                                builder: (context, state) {
+                                  final count = state is PlayerLoaded ? state.players.length : 0;
+                                  return Text(
+                                    '$count / $count',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -320,25 +255,59 @@ class _CollectionScreenState extends State<CollectionScreen>
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCardsTab() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: playerCards.length,
-      itemBuilder: (context, index) {
-        final card = playerCards[index];
-        return _buildPlayerCard(card);
+    return BlocBuilder<PlayerBloc, PlayerState>(
+      builder: (context, state) {
+        if (state is PlayerLoading) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        } else if (state is PlayerError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'エラーが発生しました',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  state.message,
+                  style: const TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        } else if (state is PlayerLoaded) {
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: state.players.length,
+            itemBuilder: (context, index) {
+              final player = state.players[index];
+              return _buildPlayerCardFromModel(player);
+            },
+          );
+        }
+        return const Center(
+          child: Text('選手データがありません'),
+        );
       },
     );
   }
@@ -470,6 +439,39 @@ class _CollectionScreenState extends State<CollectionScreen>
         ),
       ),
     );
+  }
+
+  /// Build player card from PlayerModel (API data)
+  Widget _buildPlayerCardFromModel(PlayerModel player) {
+    // Convert PlayerModel to card format
+    final card = {
+      'id': player.id,
+      'name': player.name,
+      'number': player.number ?? 0,
+      'position': player.position ?? 'N/A',
+      'rarity': player.rarity,
+      'week': 1, // Default week, can be customized later
+      'image': _getPositionEmoji(player.position),
+      'owned': true, // All players from API are considered owned
+    };
+
+    return _buildPlayerCard(card);
+  }
+
+  /// Get emoji based on player position
+  String _getPositionEmoji(String? position) {
+    switch (position) {
+      case 'GK':
+        return '🧤';
+      case 'DF':
+        return '🛡️';
+      case 'MF':
+        return '💫';
+      case 'FW':
+        return '⚽';
+      default:
+        return '⚡';
+    }
   }
 
   Widget _buildBadge(Map<String, dynamic> badge) {

@@ -31,9 +31,17 @@ class ClubModel {
   /// Stadium name
   final String? stadium;
 
+  /// Stadium capacity
+  @JsonKey(name: 'stadium_capacity')
+  final int? stadiumCapacity;
+
   /// URL to the club's logo
   @JsonKey(name: 'logo_url')
   final String? logoUrl;
+
+  /// English name
+  @JsonKey(name: 'name_en')
+  final String? nameEn;
 
   ClubModel({
     required this.id,
@@ -43,7 +51,9 @@ class ClubModel {
     this.rank,
     this.foundedYear,
     this.stadium,
+    this.stadiumCapacity,
     this.logoUrl,
+    this.nameEn,
   });
 
   /// Creates a ClubModel from JSON
@@ -62,7 +72,9 @@ class ClubModel {
     int? rank,
     int? foundedYear,
     String? stadium,
+    int? stadiumCapacity,
     String? logoUrl,
+    String? nameEn,
   }) {
     return ClubModel(
       id: id ?? this.id,
@@ -72,7 +84,9 @@ class ClubModel {
       rank: rank ?? this.rank,
       foundedYear: foundedYear ?? this.foundedYear,
       stadium: stadium ?? this.stadium,
+      stadiumCapacity: stadiumCapacity ?? this.stadiumCapacity,
       logoUrl: logoUrl ?? this.logoUrl,
+      nameEn: nameEn ?? this.nameEn,
     );
   }
 
@@ -94,7 +108,9 @@ class ClubModel {
         other.rank == rank &&
         other.foundedYear == foundedYear &&
         other.stadium == stadium &&
-        other.logoUrl == logoUrl;
+        other.stadiumCapacity == stadiumCapacity &&
+        other.logoUrl == logoUrl &&
+        other.nameEn == nameEn;
   }
 
   @override
@@ -106,7 +122,9 @@ class ClubModel {
         rank.hashCode ^
         foundedYear.hashCode ^
         stadium.hashCode ^
-        logoUrl.hashCode;
+        stadiumCapacity.hashCode ^
+        logoUrl.hashCode ^
+        nameEn.hashCode;
   }
 }
 

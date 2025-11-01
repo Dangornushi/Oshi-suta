@@ -314,3 +314,146 @@ class FirestoreRepository:
         except Exception as e:
             logger.error(f"Error getting member count for club {club_id}: {str(e)}")
             raise
+
+    # ========== Player Operations ==========
+
+    async def get_all_players(self, club_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve all players or players from a specific club.
+
+        Args:
+            club_id: Optional club identifier to filter players
+
+        Returns:
+            List of player data dictionaries
+        """
+        try:
+            players_ref = self.db.collection("players")
+
+            if club_id:
+                query = players_ref.where(filter=FieldFilter("club_id", "==", club_id))
+            else:
+                query = players_ref
+
+            players = []
+            docs = query.stream()
+            for doc in docs:
+                player_data = doc.to_dict()
+                player_data["player_id"] = doc.id
+                players.append(player_data)
+
+            return players
+        except Exception as e:
+            logger.error(f"Error getting players: {str(e)}")
+            raise
+
+    async def get_player(self, player_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve player data by ID.
+
+        Args:
+            player_id: Player identifier
+
+        Returns:
+            Player data dictionary or None if not found
+        """
+        try:
+            doc = self.db.collection("players").document(player_id).get()
+            if doc.exists:
+                player_data = doc.to_dict()
+                player_data["player_id"] = doc.id
+                return player_data
+            return None
+        except Exception as e:
+            logger.error(f"Error getting player {player_id}: {str(e)}")
+            raise
+
+    # ========== Match Operations ==========
+
+    async def get_all_matches(
+        self,
+        club_id: Optional[str] = None,
+        season: Optional[int] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve matches with optional filters.
+
+        Args:
+            club_id: Optional club identifier to filter matches
+            season: Optional season year to filter matches
+            limit: Maximum number of matches to return
+
+        Returns:
+            List of match data dictionaries
+        """
+        try:
+            matches_ref = self.db.collection("matches")
+            query = matches_ref
+
+            if season:
+                query = query.where(filter=FieldFilter("season", "==", season))
+
+            if club_id:
+                # Match where club is either home or away
+                # Note: Firestore doesn't support OR queries directly,
+                # so we need to fetch both and merge
+                home_query = query.where(filter=FieldFilter("home_club_id", "==", club_id)).limit(limit)
+                away_query = query.where(filter=FieldFilter("away_club_id", "==", club_id)).limit(limit)
+
+                matches = []
+                match_ids = set()
+
+                # Get matches where club is home
+                for doc in home_query.stream():
+                    if doc.id not in match_ids:
+                        match_data = doc.to_dict()
+                        match_data["match_id"] = doc.id
+                        matches.append(match_data)
+                        match_ids.add(doc.id)
+
+                # Get matches where club is away
+                for doc in away_query.stream():
+                    if doc.id not in match_ids:
+                        match_data = doc.to_dict()
+                        match_data["match_id"] = doc.id
+                        matches.append(match_data)
+                        match_ids.add(doc.id)
+
+                # Sort by date descending
+                matches.sort(key=lambda x: x.get("date", ""), reverse=True)
+                return matches[:limit]
+            else:
+                # No club filter, just get all matches
+                query = query.order_by("date", direction=firestore.Query.DESCENDING).limit(limit)
+                matches = []
+                for doc in query.stream():
+                    match_data = doc.to_dict()
+                    match_data["match_id"] = doc.id
+                    matches.append(match_data)
+                return matches
+
+        except Exception as e:
+            logger.error(f"Error getting matches: {str(e)}")
+            raise
+
+    async def get_match(self, match_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve match data by ID.
+
+        Args:
+            match_id: Match identifier
+
+        Returns:
+            Match data dictionary or None if not found
+        """
+        try:
+            doc = self.db.collection("matches").document(match_id).get()
+            if doc.exists:
+                match_data = doc.to_dict()
+                match_data["match_id"] = doc.id
+                return match_data
+            return None
+        except Exception as e:
+            logger.error(f"Error getting match {match_id}: {str(e)}")
+            raise

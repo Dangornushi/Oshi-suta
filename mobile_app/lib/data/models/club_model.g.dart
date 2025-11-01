@@ -14,7 +14,9 @@ ClubModel _$ClubModelFromJson(Map<String, dynamic> json) => ClubModel(
       rank: (json['league_rank'] as num?)?.toInt(),
       foundedYear: (json['founded_year'] as num?)?.toInt(),
       stadium: json['stadium'] as String?,
+      stadiumCapacity: (json['stadium_capacity'] as num?)?.toInt(),
       logoUrl: json['logo_url'] as String?,
+      nameEn: json['name_en'] as String?,
     );
 
 Map<String, dynamic> _$ClubModelToJson(ClubModel instance) => <String, dynamic>{
@@ -25,7 +27,9 @@ Map<String, dynamic> _$ClubModelToJson(ClubModel instance) => <String, dynamic>{
       'league_rank': instance.rank,
       'founded_year': instance.foundedYear,
       'stadium': instance.stadium,
+      'stadium_capacity': instance.stadiumCapacity,
       'logo_url': instance.logoUrl,
+      'name_en': instance.nameEn,
     };
 
 ClubStatsModel _$ClubStatsModelFromJson(Map<String, dynamic> json) =>
